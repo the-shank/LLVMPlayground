@@ -1,6 +1,7 @@
 option(USE_REFERENCE "Build with reference solution" OFF)
 
 include_directories(include)
+link_directories(${LLVM_LIBRARY_DIRS} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/reference)
 
 if (USE_REFERENCE)
   message(STATUS "Use reference solution")
@@ -8,12 +9,9 @@ if (USE_REFERENCE)
     src/DataflowAnalysis.cpp
     src/DivZeroAnalysis.cpp
   )
-
+  
   target_link_libraries(DataflowPass RefDomain)
-
-  add_library(RefDomain MODULE
-    reference/RefDomain.cpp
-    )
+  
 else (USE_REFERENCE)
   add_library(DataflowPass MODULE
   src/DataflowAnalysis.cpp
