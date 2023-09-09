@@ -32,3 +32,6 @@ cmake-build-debug/
 *.exe
 *.out
 *.app
+part2_basic_data_flow_analysis/.cache/clangd/index
+part1_learningir/submission.zip
+part2_basic_data_flow_analysis/build
