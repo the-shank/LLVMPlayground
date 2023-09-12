@@ -179,8 +179,16 @@ void DivZeroAnalysis::handleBinaryOperator(BinaryOperator *BO, const Memory &In,
   Value *op2 = BO->getOperand(1);
   Domain *d2 = getDomain(op2, In);
 
+  errs() << "d1: " << d1->to_string() << "\n";
+  errs() << "d2: " << d2->to_string() << "\n";
+
   switch (op) {
   // case llvm::Instruction::BinaryOpsBegin:
+  //   Out[var] = Domain::add(d1, d2);
+  //   break;
+  case llvm::Instruction::Add:
+    Out[var] = Domain::add(d1, d2);
+    break;
   // case llvm::Instruction::FAdd:
   case llvm::Instruction::Sub: {
     Out[var] = Domain::sub(d1, d2);
@@ -202,9 +210,7 @@ void DivZeroAnalysis::handleBinaryOperator(BinaryOperator *BO, const Memory &In,
   // case llvm::Instruction::Shl:
   // case llvm::Instruction::LShr:
   // case llvm::Instruction::AShr:
-  case llvm::Instruction::And:
-    Out[var] = Domain::add(d1, d2);
-    break;
+  // case llvm::Instruction::And:
   // case llvm::Instruction::Or:
   // case llvm::Instruction::Xor:
   // case llvm::Instruction::BinaryOpsEnd:
@@ -257,24 +263,38 @@ void DivZeroAnalysis::handleCmpInst(CmpInst *CmpI, const Memory &In,
   Value *op1 = CmpI->getOperand(0);
   Value *op2 = CmpI->getOperand(1);
 
-  // if both are constants
-  //    if both have the same value then NonZero
-  //    else Zero
-  // else MaybeZero
+  Domain *d1 = getDomain(op1, In);
+  Domain *d2 = getDomain(op2, In);
 
-  Constant *c1 = dyn_cast<Constant>(op1);
-  Constant *c2 = dyn_cast<Constant>(op2);
-  if (c1 && c2) {
-    errs() << "c1->getValueID(): " << c1->getValueID() << "\n";
-    errs() << "c2->getValueID(): " << c2->getValueID() << "\n";
-    if (c1->getValueID() == c2->getValueID()) {
-      Out[varInst] = new Domain(Domain::NonZero);
-    } else {
-      Out[varInst] = new Domain(Domain::Zero);
-    }
+  if (d1->Value == d2->Value && d1->Value != Domain::MaybeZero) {
+    Out[varInst] = new Domain(Domain::NonZero);
+
+  } else if (d1->Value != d2->Value && d1->Value != Domain::MaybeZero &&
+             d2->Value != Domain::MaybeZero) {
+    Out[varInst] = new Domain(Domain::Zero);
+
   } else {
     Out[varInst] = new Domain(Domain::MaybeZero);
   }
+
+  // // if both are constants
+  // //    if both have the same value then NonZero
+  // //    else Zero
+  // // else MaybeZero
+  //
+  // Constant *c1 = dyn_cast<Constant>(op1);
+  // Constant *c2 = dyn_cast<Constant>(op2);
+  // if (c1 && c2) {
+  //   errs() << "c1->getValueID(): " << c1->getValueID() << "\n";
+  //   errs() << "c2->getValueID(): " << c2->getValueID() << "\n";
+  //   if (c1->getValueID() == c2->getValueID()) {
+  //     Out[varInst] = new Domain(Domain::NonZero);
+  //   } else {
+  //     Out[varInst] = new Domain(Domain::Zero);
+  //   }
+  // } else {
+  //   Out[varInst] = new Domain(Domain::MaybeZero);
+  // }
 
   errs() << "out memory: ";
   printMemory(&Out);
