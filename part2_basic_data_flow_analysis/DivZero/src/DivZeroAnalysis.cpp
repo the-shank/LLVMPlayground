@@ -277,25 +277,6 @@ void DivZeroAnalysis::handleCmpInst(CmpInst *CmpI, const Memory &In,
     Out[varInst] = new Domain(Domain::MaybeZero);
   }
 
-  // // if both are constants
-  // //    if both have the same value then NonZero
-  // //    else Zero
-  // // else MaybeZero
-  //
-  // Constant *c1 = dyn_cast<Constant>(op1);
-  // Constant *c2 = dyn_cast<Constant>(op2);
-  // if (c1 && c2) {
-  //   errs() << "c1->getValueID(): " << c1->getValueID() << "\n";
-  //   errs() << "c2->getValueID(): " << c2->getValueID() << "\n";
-  //   if (c1->getValueID() == c2->getValueID()) {
-  //     Out[varInst] = new Domain(Domain::NonZero);
-  //   } else {
-  //     Out[varInst] = new Domain(Domain::Zero);
-  //   }
-  // } else {
-  //   Out[varInst] = new Domain(Domain::MaybeZero);
-  // }
-
   errs() << "out memory: ";
   printMemory(&Out);
 }
@@ -304,8 +285,9 @@ void DivZeroAnalysis::handleBranchInst(BranchInst *BI, const Memory &In,
                                        Memory &Out) {
   // TODO: shank
   // but it would be easier to do this once we have a print chain established
-  errs() << "handleBranchInst: not implemented yet\n";
-  exit(EXIT_FAILURE);
+  //
+  // errs() << "handleBranchInst: not implemented yet\n";
+  // exit(EXIT_FAILURE);
 }
 
 void DivZeroAnalysis::handleUserInput(Instruction *I, const Memory &In,
