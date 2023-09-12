@@ -25,7 +25,11 @@ Domain *Domain::add(Domain *E1, Domain *E2) {
     return new Domain(Domain::Zero);
   }
 
-  if (E1->Value == Domain::NonZero && E2->Value == Domain::NonZero) {
+  if (E1->Value == Domain::NonZero && E2->Value == Domain::Zero) {
+    return new Domain(Domain::NonZero);
+  }
+
+  if (E1->Value == Domain::Zero && E2->Value == Domain::NonZero) {
     return new Domain(Domain::NonZero);
   }
 

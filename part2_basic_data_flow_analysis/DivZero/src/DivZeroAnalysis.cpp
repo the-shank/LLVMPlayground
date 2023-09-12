@@ -444,12 +444,21 @@ bool DivZeroAnalysis::check(Instruction *I) {
     }
 
     if (isDivInst) {
-      auto divisor = BO->getOperand(1);
-      auto divisor_var = variable(divisor);
-      if (OutMap[I]->find(divisor_var) != OutMap[I]->end()) {
-        Domain *d = OutMap[I]->at(divisor_var);
-        if (d->Value == Domain::Zero || d->Value == Domain::MaybeZero) {
+      Value *divisor = BO->getOperand(1);
+      if (Constant *C = dyn_cast<Constant>(divisor)) {
+        // constant 0 as the divisor?
+        if (C->isZeroValue()) {
           return true;
+        }
+
+      } else {
+        // divisor is a variable which is either Zero or MaybeZero?
+        auto divisor_var = variable(divisor);
+        if (OutMap[I]->find(divisor_var) != OutMap[I]->end()) {
+          Domain *d = OutMap[I]->at(divisor_var);
+          if (d->Value == Domain::Zero || d->Value == Domain::MaybeZero) {
+            return true;
+          }
         }
       }
     }
