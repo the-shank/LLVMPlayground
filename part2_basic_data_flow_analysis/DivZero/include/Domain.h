@@ -28,6 +28,9 @@ public:
   static Domain *join(Domain *E1, Domain *E2);
   static bool order(Domain E1, Domain E2);
   void print(raw_ostream &O);
+
+  // shank: helpers
+  std::string to_string();
 };
 
 raw_ostream &operator<<(raw_ostream &O, Domain V);

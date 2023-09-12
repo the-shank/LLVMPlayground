@@ -1,4 +1,6 @@
 #include "DataflowAnalysis.h"
+#include <llvm-12/llvm/Support/Debug.h>
+#include <string>
 
 using namespace llvm;
 
@@ -51,5 +53,38 @@ bool DataflowAnalysis::runOnFunction(Function &F) {
     delete OutMap[&(*I)];
   }
   return false;
+}
+
+std::set<std::string>
+DataflowAnalysis::collect_out_vars(const std::vector<Instruction *> &preds) {
+  std::set<std::string> vars;
+
+  // dbgs() << "   preds:\n";
+  for (auto I : preds) {
+    // dbgs() << *I << "\n";
+    for (auto it = OutMap[I]->begin(); it != OutMap[I]->end(); it++) {
+      vars.insert(it->first);
+    }
+  }
+
+  return vars;
+}
+
+void DataflowAnalysis::cloneMemory(const Memory &A, Memory &B) {
+  for (auto it : A) {
+    std::string var = it.first;
+    Domain *d = it.second;
+    B[var] = new Domain(d->Value);
+  }
+}
+
+Memory *DataflowAnalysis::cloneMemory(const Memory &M) {
+  Memory *Result = new Memory;
+  for (auto it : M) {
+    std::string var = it.first;
+    Domain *d = it.second;
+    (*Result)[var] = new Domain(d->Value);
+  }
+  return Result;
 }
 } // namespace dataflow

@@ -69,23 +69,15 @@ Domain *Domain::div(Domain *E1, Domain *E2) {
   assert(E1->Value != Domain::Uninit);
   assert(E2->Value != Domain::Uninit);
 
-  // TMP: placeholder error if divisor is zero or maybezero
-  assert(E2->Value != Domain::Zero);
-  assert(E2->Value != Domain::MaybeZero);
-
-  if (E1->Value == Domain::Zero && E2->Value == Domain::NonZero) {
+  if (E1->Value == Domain::Zero) {
     return new Domain(Domain::Zero);
   }
 
-  if (E1->Value == Domain::NonZero && E2->Value == Domain::NonZero) {
+  if (E1->Value == Domain::NonZero) {
     return new Domain(Domain::NonZero);
   }
 
-  if (E1->Value == Domain::MaybeZero && E2->Value == Domain::MaybeZero) {
-    return new Domain(Domain::MaybeZero);
-  }
-
-  throw std::invalid_argument("should be unreachable!");
+  return new Domain(Domain::MaybeZero);
 }
 
 Domain *Domain::join(Domain *E1, Domain *E2) {
@@ -132,6 +124,20 @@ void Domain::print(raw_ostream &O) {
   case MaybeZero:
     O << "MaybeZero";
     break;
+  }
+}
+
+// shank helpers
+std::string Domain::to_string() {
+  switch (Value) {
+  case Uninit:
+    return "Uninit";
+  case NonZero:
+    return "NonZero";
+  case Zero:
+    return "Zero";
+  case MaybeZero:
+    return "MaybeZero";
   }
 }
 

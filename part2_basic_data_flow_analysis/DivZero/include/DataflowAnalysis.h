@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <iterator>
 #include <map>
+#include <set>
 #include <string>
 
 #include "Domain.h"
@@ -38,12 +39,18 @@ protected:
   virtual void doAnalysis(Function &F) = 0;
   virtual bool check(Instruction *I) = 0;
   virtual std::string getAnalysisName() = 0;
-};
 
+  // shank: additional helpers
+  std::set<std::string>
+  collect_out_vars(const std::vector<Instruction *> &preds);
+  Memory *cloneMemory(const Memory &M);
+  void cloneMemory(const Memory &A, Memory &B);
+};
 
 inline bool isInput(Instruction *I) {
   if (CallInst *CI = dyn_cast<CallInst>(I)) {
-    return CI->getCalledFunction() && CI->getCalledFunction()->getName().equals("getchar");
+    return CI->getCalledFunction() &&
+           CI->getCalledFunction()->getName().equals("getchar");
   } else {
     return false;
   }
