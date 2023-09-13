@@ -11,6 +11,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <iterator>
+#include <llvm-12/llvm/IR/Instructions.h>
 #include <map>
 #include <set>
 #include <string>
@@ -45,6 +46,8 @@ protected:
   collect_out_vars(const std::vector<Instruction *> &preds);
   Memory *cloneMemory(const Memory &M);
   void cloneMemory(const Memory &A, Memory &B);
+  Domain *getDomain(Value *v, const Memory &In);
+  Domain *evalPhiNode(PHINode *PHI, const Memory *Mem);
 };
 
 inline bool isInput(Instruction *I) {

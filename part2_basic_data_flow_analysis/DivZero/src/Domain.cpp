@@ -85,6 +85,14 @@ Domain *Domain::div(Domain *E1, Domain *E2) {
 }
 
 Domain *Domain::join(Domain *E1, Domain *E2) {
+  if (E1->Value == Domain::Uninit) {
+    return new Domain(E2->Value);
+  }
+
+  if (E2->Value == Domain::Uninit) {
+    return new Domain(E1->Value);
+  }
+
   if (E1->Value == Domain::Zero && E2->Value == Domain::Zero) {
     return new Domain(Domain::Zero);
   }

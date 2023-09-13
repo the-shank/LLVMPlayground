@@ -29,7 +29,9 @@ protected:
   void handleCastInst(CastInst *CI, const Memory &In, Memory &Out);
   void handleCmpInst(CmpInst *CmpI, const Memory &In, Memory &Out);
   void handleBranchInst(BranchInst *BI, const Memory &In, Memory &Out);
+  void handlePHIInst(Instruction *I, const Memory &In, Memory &Out);
   void handleUserInput(Instruction *I, const Memory &In, Memory &Out);
+  // Domain *getDomain(Value *v, const Memory &In);
 };
 } // namespace dataflow
 

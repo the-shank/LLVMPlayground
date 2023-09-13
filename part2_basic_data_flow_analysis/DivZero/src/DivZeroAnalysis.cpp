@@ -1,5 +1,6 @@
 #include "DivZeroAnalysis.h"
 #include "DataflowAnalysis.h"
+#include "Domain.h"
 #include <cassert>
 #include <cstdlib>
 #include <llvm-12/llvm/IR/InstrTypes.h>
@@ -152,20 +153,20 @@ void DivZeroAnalysis::flowIn(Instruction *I, Memory *In) {
   errs() << "flowIn <<\n";
 }
 
-Domain *getDomain(Value *v, const Memory &In) {
-  if (Constant *C = dyn_cast<Constant>(v)) {
-    // get the domain from constant value
-    if (C->isZeroValue()) {
-      return new Domain(Domain::Zero);
-    } else {
-      return new Domain(Domain::NonZero);
-    }
-  } else {
-    // get the domain from in memory
-    const std::string var = variable(v);
-    return In.at(var);
-  }
-}
+// Domain *DivZeroAnalysis::getDomain(Value *v, const Memory &In) {
+//   if (Constant *C = dyn_cast<Constant>(v)) {
+//     // get the domain from constant value
+//     if (C->isZeroValue()) {
+//       return new Domain(Domain::Zero);
+//     } else {
+//       return new Domain(Domain::NonZero);
+//     }
+//   } else {
+//     // get the domain from in memory
+//     const std::string var = variable(v);
+//     return In.at(var);
+//   }
+// }
 
 void DivZeroAnalysis::handleBinaryOperator(BinaryOperator *BO, const Memory &In,
                                            Memory &Out) {
@@ -253,6 +254,360 @@ void DivZeroAnalysis::handleCastInst(CastInst *CI, const Memory &In,
   errs() << "handleCastInst <<\n";
 }
 
+Domain::Element handle_ICMP_EQ(Value *op1, Value *op2, Constant *c1,
+                               Constant *c2, Domain *d1, Domain *d2,
+                               const Memory &In) {
+  Domain::Element resDomain = Domain::Uninit;
+
+  if (c1 && c2) {
+    // if both are constants, handle by their values
+    long i1 = c1->getUniqueInteger().getSExtValue();
+    long i2 = c2->getUniqueInteger().getSExtValue();
+    if (i1 == i2) {
+      resDomain = Domain::NonZero;
+    } else {
+      resDomain = Domain::Zero;
+    }
+
+  } else {
+    // if both are not contants, handle by their domains
+    if (d1->Value == Domain::MaybeZero || d2->Value == Domain::MaybeZero ||
+        (d1->Value == Domain::NonZero && d2->Value == Domain::NonZero)) {
+      // MBZ,? | ?,MBZ | NZ, NZ
+      resDomain = Domain::MaybeZero;
+    } else if (d1->Value == Domain::Zero && d2->Value == Domain::Zero) {
+      // Z,Z
+      resDomain = Domain::NonZero;
+    } else {
+      // Z,NZ | NZ,Z
+      resDomain = Domain::MaybeZero;
+    }
+  }
+
+  return resDomain;
+}
+
+Domain::Element handle_ICMP_NE(Value *op1, Value *op2, Constant *c1,
+                               Constant *c2, Domain *d1, Domain *d2,
+                               const Memory &In) {
+  Domain::Element resDomain = Domain::Uninit;
+
+  if (c1 && c2) {
+    // if both are constants, handle by their values
+    long i1 = c1->getUniqueInteger().getSExtValue();
+    long i2 = c2->getUniqueInteger().getSExtValue();
+    if (i1 == i2) {
+      resDomain = Domain::Zero;
+    } else {
+      resDomain = Domain::NonZero;
+    }
+
+  } else {
+    // if both are not contants, handle by their domains
+    if (d1->Value == Domain::MaybeZero || d2->Value == Domain::MaybeZero ||
+        (d1->Value == Domain::NonZero && d2->Value == Domain::NonZero)) {
+      // MBZ,? | ?,MBZ | NZ, NZ
+      resDomain = Domain::MaybeZero;
+    } else if (d1->Value == Domain::Zero && d2->Value == Domain::Zero) {
+      // Z,Z
+      resDomain = Domain::Zero;
+    } else {
+      // Z,NZ | NZ,Z
+      resDomain = Domain::NonZero;
+    }
+  }
+
+  return resDomain;
+}
+
+Domain::Element handle_ICMP_UGT(Value *op1, Value *op2, Constant *c1,
+                                Constant *c2, Domain *d1, Domain *d2,
+                                const Memory &In) {
+  Domain::Element resDomain = Domain::Uninit;
+
+  if (c1 && c2) {
+    // if both are constants, handle by their values
+    long i1 = c1->getUniqueInteger().getSExtValue();
+    long i2 = c2->getUniqueInteger().getSExtValue();
+    if (i1 > i2) {
+      resDomain = Domain::NonZero;
+    } else {
+      resDomain = Domain::Zero;
+    }
+
+  } else {
+    // if both are not contants, handle by their domains
+    if (d1->Value == Domain::MaybeZero || d2->Value == Domain::MaybeZero ||
+        (d1->Value == Domain::NonZero && d2->Value == Domain::NonZero)) {
+      // MBZ,? | ?,MBZ | NZ, NZ
+      resDomain = Domain::MaybeZero;
+    } else if (d1->Value == Domain::Zero && d2->Value == Domain::Zero) {
+      // Z,Z
+      resDomain = Domain::Zero;
+    } else if (d1->Value == Domain::NonZero && d2->Value == Domain::Zero) {
+      // NZ,Z
+      resDomain = Domain::NonZero;
+    } else {
+      // Z,NZ
+      resDomain = Domain::Zero;
+    }
+  }
+
+  return resDomain;
+}
+
+Domain::Element handle_ICMP_UGE(Value *op1, Value *op2, Constant *c1,
+                                Constant *c2, Domain *d1, Domain *d2,
+                                const Memory &In) {
+  Domain::Element resDomain = Domain::Uninit;
+
+  if (c1 && c2) {
+    // if both are constants, handle by their values
+    long i1 = c1->getUniqueInteger().getSExtValue();
+    long i2 = c2->getUniqueInteger().getSExtValue();
+    if (i1 >= i2) {
+      resDomain = Domain::NonZero;
+    } else {
+      resDomain = Domain::Zero;
+    }
+
+  } else {
+    // if both are not contants, handle by their domains
+    if (d1->Value == Domain::MaybeZero || d2->Value == Domain::MaybeZero ||
+        (d1->Value == Domain::NonZero && d2->Value == Domain::NonZero)) {
+      // MBZ,? | ?,MBZ | NZ, NZ
+      resDomain = Domain::MaybeZero;
+    } else if (d1->Value == Domain::Zero && d2->Value == Domain::Zero) {
+      // Z,Z
+      resDomain = Domain::NonZero;
+    } else if (d1->Value == Domain::NonZero && d2->Value == Domain::Zero) {
+      // NZ,Z
+      resDomain = Domain::NonZero;
+    } else {
+      // Z,NZ
+      resDomain = Domain::Zero;
+    }
+  }
+
+  return resDomain;
+}
+
+Domain::Element handle_ICMP_ULT(Value *op1, Value *op2, Constant *c1,
+                                Constant *c2, Domain *d1, Domain *d2,
+                                const Memory &In) {
+  Domain::Element resDomain = Domain::Uninit;
+
+  if (c1 && c2) {
+    // if both are constants, handle by their values
+    long i1 = c1->getUniqueInteger().getSExtValue();
+    long i2 = c2->getUniqueInteger().getSExtValue();
+    if (i1 < i2) {
+      resDomain = Domain::NonZero;
+    } else {
+      resDomain = Domain::Zero;
+    }
+
+  } else {
+    // if both are not contants, handle by their domains
+    if (d1->Value == Domain::MaybeZero || d2->Value == Domain::MaybeZero ||
+        (d1->Value == Domain::NonZero && d2->Value == Domain::NonZero)) {
+      // MBZ,? | ?,MBZ | NZ, NZ
+      resDomain = Domain::MaybeZero;
+    } else if (d1->Value == Domain::Zero && d2->Value == Domain::Zero) {
+      // Z,Z
+      resDomain = Domain::Zero;
+    } else if (d1->Value == Domain::NonZero && d2->Value == Domain::Zero) {
+      // NZ,Z
+      resDomain = Domain::Zero;
+    } else {
+      // Z,NZ
+      resDomain = Domain::NonZero;
+    }
+  }
+
+  return resDomain;
+}
+
+Domain::Element handle_ICMP_ULE(Value *op1, Value *op2, Constant *c1,
+                                Constant *c2, Domain *d1, Domain *d2,
+                                const Memory &In) {
+  Domain::Element resDomain = Domain::Uninit;
+
+  if (c1 && c2) {
+    // if both are constants, handle by their values
+    long i1 = c1->getUniqueInteger().getSExtValue();
+    long i2 = c2->getUniqueInteger().getSExtValue();
+    if (i1 <= i2) {
+      resDomain = Domain::NonZero;
+    } else {
+      resDomain = Domain::Zero;
+    }
+
+  } else {
+    // if both are not contants, handle by their domains
+    if (d1->Value == Domain::MaybeZero || d2->Value == Domain::MaybeZero ||
+        (d1->Value == Domain::NonZero && d2->Value == Domain::NonZero)) {
+      // MBZ,? | ?,MBZ | NZ, NZ
+      resDomain = Domain::MaybeZero;
+    } else if (d1->Value == Domain::Zero && d2->Value == Domain::Zero) {
+      // Z,Z
+      resDomain = Domain::NonZero;
+    } else if (d1->Value == Domain::NonZero && d2->Value == Domain::Zero) {
+      // NZ,Z
+      resDomain = Domain::Zero;
+    } else {
+      // Z,NZ
+      resDomain = Domain::NonZero;
+    }
+  }
+
+  return resDomain;
+}
+
+Domain::Element handle_ICMP_SGT(Value *op1, Value *op2, Constant *c1,
+                                Constant *c2, Domain *d1, Domain *d2,
+                                const Memory &In) {
+  Domain::Element resDomain = Domain::Uninit;
+
+  if (c1 && c2) {
+    // if both are constants, handle by their values
+    long i1 = c1->getUniqueInteger().getSExtValue();
+    long i2 = c2->getUniqueInteger().getSExtValue();
+    if (i1 > i2) {
+      resDomain = Domain::NonZero;
+    } else {
+      resDomain = Domain::Zero;
+    }
+
+  } else {
+    // if both are not contants, handle by their domains
+    if (d1->Value == Domain::MaybeZero || d2->Value == Domain::MaybeZero ||
+        (d1->Value == Domain::NonZero && d2->Value == Domain::NonZero)) {
+      // MBZ,? | ?,MBZ | NZ, NZ
+      resDomain = Domain::MaybeZero;
+    } else if (d1->Value == Domain::Zero && d2->Value == Domain::Zero) {
+      // Z,Z
+      resDomain = Domain::Zero;
+    } else if (d1->Value == Domain::NonZero && d2->Value == Domain::Zero) {
+      // NZ,Z
+      resDomain = Domain::MaybeZero;
+    } else {
+      // Z,NZ
+      resDomain = Domain::MaybeZero;
+    }
+  }
+
+  return resDomain;
+}
+
+Domain::Element handle_ICMP_SGE(Value *op1, Value *op2, Constant *c1,
+                                Constant *c2, Domain *d1, Domain *d2,
+                                const Memory &In) {
+  Domain::Element resDomain = Domain::Uninit;
+
+  if (c1 && c2) {
+    // if both are constants, handle by their values
+    long i1 = c1->getUniqueInteger().getSExtValue();
+    long i2 = c2->getUniqueInteger().getSExtValue();
+    if (i1 >= i2) {
+      resDomain = Domain::NonZero;
+    } else {
+      resDomain = Domain::Zero;
+    }
+
+  } else {
+    // if both are not contants, handle by their domains
+    if (d1->Value == Domain::MaybeZero || d2->Value == Domain::MaybeZero ||
+        (d1->Value == Domain::NonZero && d2->Value == Domain::NonZero)) {
+      // MBZ,? | ?,MBZ | NZ, NZ
+      resDomain = Domain::MaybeZero;
+    } else if (d1->Value == Domain::Zero && d2->Value == Domain::Zero) {
+      // Z,Z
+      resDomain = Domain::NonZero;
+    } else if (d1->Value == Domain::NonZero && d2->Value == Domain::Zero) {
+      // NZ,Z
+      resDomain = Domain::MaybeZero;
+    } else {
+      // Z,NZ
+      resDomain = Domain::MaybeZero;
+    }
+  }
+
+  return resDomain;
+}
+
+Domain::Element handle_ICMP_SLT(Value *op1, Value *op2, Constant *c1,
+                                Constant *c2, Domain *d1, Domain *d2,
+                                const Memory &In) {
+  Domain::Element resDomain = Domain::Uninit;
+
+  if (c1 && c2) {
+    // if both are constants, handle by their values
+    long i1 = c1->getUniqueInteger().getSExtValue();
+    long i2 = c2->getUniqueInteger().getSExtValue();
+    if (i1 < i2) {
+      resDomain = Domain::NonZero;
+    } else {
+      resDomain = Domain::Zero;
+    }
+
+  } else {
+    // if both are not contants, handle by their domains
+    if (d1->Value == Domain::MaybeZero || d2->Value == Domain::MaybeZero ||
+        (d1->Value == Domain::NonZero && d2->Value == Domain::NonZero)) {
+      // MBZ,? | ?,MBZ | NZ, NZ
+      resDomain = Domain::MaybeZero;
+    } else if (d1->Value == Domain::Zero && d2->Value == Domain::Zero) {
+      // Z,Z
+      resDomain = Domain::Zero;
+    } else if (d1->Value == Domain::NonZero && d2->Value == Domain::Zero) {
+      // NZ,Z
+      resDomain = Domain::MaybeZero;
+    } else {
+      // Z,NZ
+      resDomain = Domain::MaybeZero;
+    }
+  }
+
+  return resDomain;
+}
+
+Domain::Element handle_ICMP_SLE(Value *op1, Value *op2, Constant *c1,
+                                Constant *c2, Domain *d1, Domain *d2,
+                                const Memory &In) {
+  Domain::Element resDomain = Domain::Uninit;
+
+  if (c1 && c2) {
+    // if both are constants, handle by their values
+    long i1 = c1->getUniqueInteger().getSExtValue();
+    long i2 = c2->getUniqueInteger().getSExtValue();
+    if (i1 <= i2) {
+      resDomain = Domain::NonZero;
+    } else {
+      resDomain = Domain::Zero;
+    }
+
+  } else {
+    // if both are not contants, handle by their domains
+    if (d1->Value == Domain::MaybeZero || d2->Value == Domain::MaybeZero ||
+        (d1->Value == Domain::NonZero && d2->Value == Domain::NonZero)) {
+      // MBZ,? | ?,MBZ | NZ, NZ
+      resDomain = Domain::MaybeZero;
+    } else if (d1->Value == Domain::Zero && d2->Value == Domain::Zero) {
+      // Z,Z
+      resDomain = Domain::NonZero;
+    } else if (d1->Value == Domain::NonZero && d2->Value == Domain::Zero) {
+      // NZ,Z
+      resDomain = Domain::MaybeZero;
+    } else {
+      // Z,NZ
+      resDomain = Domain::MaybeZero;
+    }
+  }
+
+  return resDomain;
+}
+
 void DivZeroAnalysis::handleCmpInst(CmpInst *CmpI, const Memory &In,
                                     Memory &Out) {
   errs() << "handleCmpInst: \n";
@@ -263,19 +618,86 @@ void DivZeroAnalysis::handleCmpInst(CmpInst *CmpI, const Memory &In,
   Value *op1 = CmpI->getOperand(0);
   Value *op2 = CmpI->getOperand(1);
 
+  Constant *c1 = dyn_cast<Constant>(op1);
+  Constant *c2 = dyn_cast<Constant>(op2);
+
   Domain *d1 = getDomain(op1, In);
   Domain *d2 = getDomain(op2, In);
 
-  if (d1->Value == d2->Value && d1->Value != Domain::MaybeZero) {
-    Out[varInst] = new Domain(Domain::NonZero);
+  Domain::Element resDomain = Domain::Uninit;
 
-  } else if (d1->Value != d2->Value && d1->Value != Domain::MaybeZero &&
-             d2->Value != Domain::MaybeZero) {
-    Out[varInst] = new Domain(Domain::Zero);
+  if (d1->Value == Domain::MaybeZero || d2->Value == Domain::MaybeZero) {
+    resDomain = Domain::MaybeZero;
 
   } else {
-    Out[varInst] = new Domain(Domain::MaybeZero);
+    auto predicate = CmpI->getPredicate();
+    switch (predicate) {
+    // case llvm::CmpInst::FCMP_FALSE:
+    // case llvm::CmpInst::FCMP_OEQ:
+    // case llvm::CmpInst::FCMP_OGT:
+    // case llvm::CmpInst::FCMP_OGE:
+    // case llvm::CmpInst::FCMP_OLT:
+    // case llvm::CmpInst::FCMP_OLE:
+    // case llvm::CmpInst::FCMP_ONE:
+    // case llvm::CmpInst::FCMP_ORD:
+    // case llvm::CmpInst::FCMP_UNO:
+    // case llvm::CmpInst::FCMP_UEQ:
+    // case llvm::CmpInst::FCMP_UGT:
+    // case llvm::CmpInst::FCMP_UGE:
+    // case llvm::CmpInst::FCMP_ULT:
+    // case llvm::CmpInst::FCMP_ULE:
+    // case llvm::CmpInst::FCMP_UNE:
+    // case llvm::CmpInst::FCMP_TRUE:
+    // case llvm::CmpInst::BAD_FCMP_PREDICATE:
+    case llvm::CmpInst::ICMP_EQ:
+      resDomain = handle_ICMP_EQ(op1, op2, c1, c2, d1, d2, In);
+      break;
+
+    case llvm::CmpInst::ICMP_NE:
+      resDomain = handle_ICMP_NE(op1, op2, c1, c2, d1, d2, In);
+      break;
+
+    case llvm::CmpInst::ICMP_UGT:
+      resDomain = handle_ICMP_UGT(op1, op2, c1, c2, d1, d2, In);
+      break;
+
+    case llvm::CmpInst::ICMP_UGE:
+      resDomain = handle_ICMP_UGE(op1, op2, c1, c2, d1, d2, In);
+      break;
+
+    case llvm::CmpInst::ICMP_ULT:
+      resDomain = handle_ICMP_ULT(op1, op2, c1, c2, d1, d2, In);
+      break;
+
+    case llvm::CmpInst::ICMP_ULE:
+      resDomain = handle_ICMP_ULE(op1, op2, c1, c2, d1, d2, In);
+      break;
+
+    case llvm::CmpInst::ICMP_SGT:
+      resDomain = handle_ICMP_SGT(op1, op2, c1, c2, d1, d2, In);
+      break;
+
+    case llvm::CmpInst::ICMP_SGE:
+      resDomain = handle_ICMP_SGE(op1, op2, c1, c2, d1, d2, In);
+      break;
+
+    case llvm::CmpInst::ICMP_SLT:
+      resDomain = handle_ICMP_SLT(op1, op2, c1, c2, d1, d2, In);
+      break;
+
+    case llvm::CmpInst::ICMP_SLE:
+      resDomain = handle_ICMP_SLE(op1, op2, c1, c2, d1, d2, In);
+      break;
+
+    // case llvm::CmpInst::BAD_ICMP_PREDICATE:
+    default:
+      errs() << "[!] unsupported predicate";
+      exit(EXIT_FAILURE);
+    }
   }
+
+  assert(resDomain != Domain::Uninit);
+  Out[varInst] = new Domain(resDomain);
 
   errs() << "out memory: ";
   printMemory(&Out);
@@ -284,18 +706,35 @@ void DivZeroAnalysis::handleCmpInst(CmpInst *CmpI, const Memory &In,
 void DivZeroAnalysis::handleBranchInst(BranchInst *BI, const Memory &In,
                                        Memory &Out) {
   // TODO: shank
-  // but it would be easier to do this once we have a print chain established
+  // but it would be easier to do this once we have a print chain
+  // established
   //
   // errs() << "handleBranchInst: not implemented yet\n";
   // exit(EXIT_FAILURE);
 }
 
+void DivZeroAnalysis::handlePHIInst(Instruction *I, const Memory &In,
+                                    Memory &Out) {
+  PHINode *PHI = dyn_cast<PHINode>(I);
+  assert(PHI != nullptr);
+  Domain *d = evalPhiNode(PHI, &In);
+  errs() << "domain of phi: " << d << "\n";
+
+  std::string varInst = variable(I);
+  Out[varInst] = d;
+
+  errs() << "out memory: ";
+  printMemory(&Out);
+}
+
 void DivZeroAnalysis::handleUserInput(Instruction *I, const Memory &In,
                                       Memory &Out) {
   // TODO: shank
-  // but it would be easier to do this once we have a print chain established
-  errs() << "handleUserInput: not implemented yet\n";
-  exit(EXIT_FAILURE);
+  Domain *d = new Domain(Domain::MaybeZero);
+  std::string varInst = variable(I);
+  Out[varInst] = d;
+  errs() << "out memory: ";
+  printMemory(&Out);
 }
 
 void DivZeroAnalysis::transfer(Instruction *I, const Memory *In, Memory *Out) {
@@ -317,7 +756,8 @@ void DivZeroAnalysis::transfer(Instruction *I, const Memory *In, Memory *Out) {
   // - CastInst
   // - CmpInst (icmp eq, ne, slt, sgt, sge, etc.)
   // - BranchInst
-  // - user input via getchar() - recall from above that this is handled using
+  // - user input via getchar() - recall from above that this is handled
+  // using
   //    isInput() from DivZero/include/DataflowAnalysis.h
 
   // TODO: shank: wip
@@ -346,14 +786,18 @@ void DivZeroAnalysis::transfer(Instruction *I, const Memory *In, Memory *Out) {
     // BI->dump();
     handleBranchInst(BI, *In, *Out);
 
+  } else if (isa<PHINode>(I)) {
+    dbgs() << ">> phi inst:\n";
+    handlePHIInst(I, *In, *Out);
+
   } else if (isInput(I)) {
     dbgs() << ">> user input:\n";
     // I->dump();
     handleUserInput(I, *In, *Out);
-
   } else {
     // do nothing
     // OUT <- IN
+    dbgs() << ">> doing nothing...\n";
     for (auto it : *In) {
       Out->at(it.first) = it.second;
     }
@@ -394,10 +838,10 @@ void DivZeroAnalysis::doAnalysis(Function &F) {
   /* Add your code here */
   /* Basic Workflow-
        Visit instruction in WorkSet
-       For each visited instruction I, construct its In memory by joining all
-     memory sets of incoming flows (predecessors of I) Based on the type of
-     instruction I and the In memory, populate the NOut memory Based on the
-     previous Out memory and the current Out memory, check if there is a
+       For each visited instruction I, construct its In memory by joining
+     all memory sets of incoming flows (predecessors of I) Based on the type
+     of instruction I and the In memory, populate the NOut memory Based on
+     the previous Out memory and the current Out memory, check if there is a
      difference between the two and flow the memory set appropriately to all
      successors of I and update WorkSet accordingly
   */
@@ -439,13 +883,8 @@ bool DivZeroAnalysis::check(Instruction *I) {
   // - is a div instruction
   // - divisor has either a Zero or MaybeZero domain
   if (BinaryOperator *BO = dyn_cast<BinaryOperator>(I)) {
-    bool isDivInst = false;
     auto op = BO->getOpcode();
     if (op == llvm::Instruction::SDiv || op == llvm::Instruction::UDiv) {
-      isDivInst = true;
-    }
-
-    if (isDivInst) {
       Value *divisor = BO->getOperand(1);
       if (Constant *C = dyn_cast<Constant>(divisor)) {
         // constant 0 as the divisor?
