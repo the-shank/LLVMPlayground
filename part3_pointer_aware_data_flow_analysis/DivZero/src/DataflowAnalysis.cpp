@@ -1,4 +1,7 @@
 #include "DataflowAnalysis.h"
+#include <cstdlib>
+#include <llvm-12/llvm/Support/Debug.h>
+#include <string>
 
 using namespace llvm;
 
@@ -61,5 +64,82 @@ bool DataflowAnalysis::runOnFunction(Function &F) {
     delete OutMap[&(*I)];
   }
   return false;
+}
+
+std::set<std::string>
+DataflowAnalysis::collect_out_vars(const std::vector<Instruction *> &preds) {
+  std::set<std::string> vars;
+
+  // dbgs() << "   preds:\n";
+  for (auto I : preds) {
+    // dbgs() << *I << "\n";
+    for (auto it = OutMap[I]->begin(); it != OutMap[I]->end(); it++) {
+      vars.insert(it->first);
+    }
+  }
+
+  return vars;
+}
+
+void DataflowAnalysis::cloneMemory(const Memory &A, Memory &B) {
+  for (auto it : A) {
+    std::string var = it.first;
+    Domain *d = it.second;
+    B[var] = new Domain(d->Value);
+  }
+}
+
+Memory *DataflowAnalysis::cloneMemory(const Memory &M) {
+  Memory *Result = new Memory;
+  for (auto it : M) {
+    std::string var = it.first;
+    Domain *d = it.second;
+    (*Result)[var] = new Domain(d->Value);
+  }
+  return Result;
+}
+
+Domain *DataflowAnalysis::evalPhiNode(PHINode *PHI, const Memory *Mem) {
+  Value *cv = PHI->hasConstantValue();
+  if (cv) {
+    // eval cv, manipulate Mem, return
+    Domain *d = getDomain(cv, *Mem);
+    return d;
+  }
+  unsigned int n = PHI->getNumIncomingValues();
+  Domain *joined = NULL;
+  for (unsigned int i = 0; i < n; i++) {
+    // Domain *V = // eval PHI->getIncomingValue(i), manipulate Mem
+    Value *inVal = PHI->getIncomingValue(i);
+    Domain *V = getDomain(inVal, *Mem);
+    if (!joined) {
+      joined = V;
+    }
+    joined = Domain::join(joined, V);
+  }
+  return joined;
+}
+
+Domain *DataflowAnalysis::getDomain(const std::string var, const Memory &In) {
+  if (In.find(var) != In.end()) {
+    return In.at(var);
+  } else {
+    return new Domain(Domain::Uninit);
+  }
+}
+
+Domain *DataflowAnalysis::getDomain(Value *v, const Memory &In) {
+  if (Constant *C = dyn_cast<Constant>(v)) {
+    // get the domain from constant value
+    if (C->isZeroValue()) {
+      return new Domain(Domain::Zero);
+    } else {
+      return new Domain(Domain::NonZero);
+    }
+  } else {
+    // get the domain from in memory
+    const std::string var = variable(v);
+    return getDomain(var, In);
+  }
 }
 } // namespace dataflow
