@@ -750,6 +750,9 @@ void DivZeroAnalysis::handleBranchInst(BranchInst *BI, const Memory &In,
   // TODO: shank
   // but it would be easier to do this once we have a print chain
   // established
+  for (auto it : In) {
+    Out.at(it.first) = it.second;
+  }
   //
   // errs() << "handleBranchInst: not implemented yet\n";
   // exit(EXIT_FAILURE);

@@ -1,15 +1,20 @@
-; ModuleID = 'simple1.ll'
-source_filename = "simple1.c"
+; ModuleID = 'simple0.ll'
+source_filename = "simple0.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
 define dso_local i32 @main() #0 {
 entry:
-  %cmp = icmp eq i32 0, 0
-  %conv = zext i1 %cmp to i32
-  %div = sdiv i32 0, %conv
-  %div1 = sdiv i32 %div, %div
+  %add = add nsw i32 0, 1
+  %div = sdiv i32 1, 0
+  %tobool = icmp ne i32 %add, 0
+  br i1 %tobool, label %if.then, label %if.end
+
+if.then:                                          ; preds = %entry
+  br label %if.end
+
+if.end:                                           ; preds = %if.then, %entry
   ret i32 0
 }
 
@@ -19,4 +24,4 @@ attributes #0 = { noinline nounwind uwtable "disable-tail-calls"="false" "frame-
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"Ubuntu clang version 12.0.1-++20211029101322+fed41342a82f-1~exp1~20211029221816.4"}
+!1 = !{!"Ubuntu clang version 12.0.1-19ubuntu3"}

@@ -18,8 +18,9 @@ Domain::Domain(Element V) : Value{V} {}
 
 Domain *Domain::add(Domain *E1, Domain *E2) {
   // should never be called on uninitialized values
-  assert(E1->Value != Domain::Uninit);
-  assert(E2->Value != Domain::Uninit);
+  if (E1->Value == Domain::Uninit || E2->Value == Domain::Uninit) {
+    return new Domain(Domain::MaybeZero);
+  }
 
   if (E1->Value == Domain::Zero && E2->Value == Domain::Zero) {
     return new Domain(Domain::Zero);
@@ -38,8 +39,9 @@ Domain *Domain::add(Domain *E1, Domain *E2) {
 
 Domain *Domain::sub(Domain *E1, Domain *E2) {
   // should never be called on uninitialized values
-  assert(E1->Value != Domain::Uninit);
-  assert(E2->Value != Domain::Uninit);
+  if (E1->Value == Domain::Uninit || E2->Value == Domain::Uninit) {
+    return new Domain(Domain::MaybeZero);
+  }
 
   if (E1->Value == Domain::Zero && E2->Value == Domain::Zero) {
     return new Domain(Domain::Zero);
@@ -54,8 +56,9 @@ Domain *Domain::sub(Domain *E1, Domain *E2) {
 
 Domain *Domain::mul(Domain *E1, Domain *E2) {
   // should never be called on uninitialized values
-  assert(E1->Value != Domain::Uninit);
-  assert(E2->Value != Domain::Uninit);
+  if (E1->Value == Domain::Uninit || E2->Value == Domain::Uninit) {
+    return new Domain(Domain::MaybeZero);
+  }
 
   if (E1->Value == Domain::Zero || E2->Value == Domain::Zero) {
     return new Domain(Domain::Zero);
@@ -70,8 +73,9 @@ Domain *Domain::mul(Domain *E1, Domain *E2) {
 
 Domain *Domain::div(Domain *E1, Domain *E2) {
   // should never be called on uninitialized values
-  assert(E1->Value != Domain::Uninit);
-  assert(E2->Value != Domain::Uninit);
+  if (E1->Value == Domain::Uninit || E2->Value == Domain::Uninit) {
+    return new Domain(Domain::MaybeZero);
+  }
 
   if (E1->Value == Domain::Zero) {
     return new Domain(Domain::Zero);

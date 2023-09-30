@@ -778,6 +778,9 @@ void DivZeroAnalysis::handleBranchInst(BranchInst *BI, const Memory &In,
   //
   // errs() << "handleBranchInst: not implemented yet\n";
   // exit(EXIT_FAILURE);
+  for (auto it : In) {
+    Out.at(it.first) = it.second;
+  }
 }
 
 void DivZeroAnalysis::handlePHIInst(Instruction *I, const Memory &In,

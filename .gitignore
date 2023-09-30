@@ -35,3 +35,5 @@ cmake-build-debug/
 part2_basic_data_flow_analysis/.cache/clangd/index
 part1_learningir/submission.zip
 part2_basic_data_flow_analysis/build
+part3_pointer_aware_data_flow_analysis/build
+part4_instrumentation/build

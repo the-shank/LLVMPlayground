@@ -1,5 +1,5 @@
-; ModuleID = 'simple1.c'
-source_filename = "simple1.c"
+; ModuleID = 'simple0.c'
+source_filename = "simple0.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux-gnu"
 
@@ -11,23 +11,26 @@ entry:
   %b = alloca i32, align 4
   %c = alloca i32, align 4
   %d = alloca i32, align 4
-  %e = alloca i32, align 4
+  %a1 = alloca i32, align 4
   store i32 0, i32* %retval, align 4
   store i32 0, i32* %a, align 4
-  store i32 0, i32* %b, align 4
+  store i32 1, i32* %b, align 4
   %0 = load i32, i32* %a, align 4
+  %add = add nsw i32 %0, 1
+  store i32 %add, i32* %c, align 4
   %1 = load i32, i32* %b, align 4
-  %cmp = icmp eq i32 %0, %1
-  %conv = zext i1 %cmp to i32
-  store i32 %conv, i32* %c, align 4
-  %2 = load i32, i32* %b, align 4
-  %3 = load i32, i32* %c, align 4
-  %div = sdiv i32 %2, %3
+  %2 = load i32, i32* %a, align 4
+  %div = sdiv i32 %1, %2
   store i32 %div, i32* %d, align 4
-  %4 = load i32, i32* %d, align 4
-  %5 = load i32, i32* %d, align 4
-  %div1 = sdiv i32 %4, %5
-  store i32 %div1, i32* %e, align 4
+  %3 = load i32, i32* %c, align 4
+  %tobool = icmp ne i32 %3, 0
+  br i1 %tobool, label %if.then, label %if.end
+
+if.then:                                          ; preds = %entry
+  store i32 1, i32* %a1, align 4
+  br label %if.end
+
+if.end:                                           ; preds = %if.then, %entry
   ret i32 0
 }
 
@@ -37,4 +40,4 @@ attributes #0 = { noinline nounwind uwtable "disable-tail-calls"="false" "frame-
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"Ubuntu clang version 12.0.1-++20211029101322+fed41342a82f-1~exp1~20211029221816.4"}
+!1 = !{!"Ubuntu clang version 12.0.1-19ubuntu3"}
