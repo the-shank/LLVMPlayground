@@ -3,6 +3,7 @@
 #include "Domain.h"
 #include <cassert>
 #include <cstdlib>
+#include <llvm-12/llvm/IR/Constants.h>
 #include <llvm-12/llvm/IR/InstrTypes.h>
 #include <llvm-12/llvm/IR/Instruction.h>
 #include <llvm-12/llvm/IR/Instructions.h>
@@ -42,11 +43,11 @@ void printMemory(const Memory *M) {
 
 // define the following functions if needed (not compulsory to do so)
 Memory *join(Memory *M1, Memory *M2) {
-  errs() << "join >>\n";
-  errs() << "M1: ";
-  printMemory(M1);
-  errs() << "M2: ";
-  printMemory(M2);
+  // errs() << "join >>\n";
+  // errs() << "M1: ";
+  // printMemory(M1);
+  // errs() << "M2: ";
+  // printMemory(M2);
 
   Memory *Result = new Memory();
 
@@ -62,7 +63,7 @@ Memory *join(Memory *M1, Memory *M2) {
 
   // merge the variables into the result
   for (auto v : vars) {
-    errs() << "v: " << v << "\n";
+    // errs() << "v: " << v << "\n";
     if (M1->find(v) != M1->end()) {
       if (Result->find(v) == Result->end()) {
         // new var
@@ -90,8 +91,8 @@ Memory *join(Memory *M1, Memory *M2) {
   }
 
   /* Result will be the union of memories M1 and M2 */
-  errs() << "Result: ";
-  printMemory(Result);
+  // errs() << "Result: ";
+  // printMemory(Result);
   return Result;
 }
 
@@ -124,16 +125,16 @@ bool equal(Memory *M1, Memory *M2) {
 }
 
 void DivZeroAnalysis::flowIn(Instruction *I, Memory *In) {
-  errs() << "flowIn >>\n";
+  // errs() << "flowIn >>\n";
   /* Add your code here */
   // preds of I
   std::vector<Instruction *> preds = getPredecessors(I);
 
-  errs() << "previous mem: ";
-  printMemory(In);
+  // errs() << "previous mem: ";
+  // printMemory(In);
 
   // clear out the previous InMem
-  InMap[I]->clear();
+  // InMap[I]->clear();
 
   // which variables are defined in the OutMem of all the preds?
   std::set<std::string> vars = collect_out_vars(preds);
@@ -141,32 +142,17 @@ void DivZeroAnalysis::flowIn(Instruction *I, Memory *In) {
   // for each var, join the in-vars
   for (const std::string &v : vars) {
     for (auto &pred : preds) {
-      dbgs() << "pred: " << *pred << "\n";
+      // dbgs() << "pred: " << *pred << "\n";
       InMap[I] = join(InMap[I], OutMap[pred]);
     }
   }
 
-  dbgs() << "after mem: ";
-  // printMemory(In);
-  printMemory(InMap[I]);
+  // dbgs() << "after mem: ";
+  // // printMemory(In);
+  // printMemory(InMap[I]);
 
-  errs() << "flowIn <<\n";
+  // errs() << "flowIn <<\n";
 }
-
-// Domain *DivZeroAnalysis::getDomain(Value *v, const Memory &In) {
-//   if (Constant *C = dyn_cast<Constant>(v)) {
-//     // get the domain from constant value
-//     if (C->isZeroValue()) {
-//       return new Domain(Domain::Zero);
-//     } else {
-//       return new Domain(Domain::NonZero);
-//     }
-//   } else {
-//     // get the domain from in memory
-//     const std::string var = variable(v);
-//     return In.at(var);
-//   }
-// }
 
 void DivZeroAnalysis::handleBinaryOperator(BinaryOperator *BO, const Memory &In,
                                            Memory &Out) {
@@ -175,63 +161,119 @@ void DivZeroAnalysis::handleBinaryOperator(BinaryOperator *BO, const Memory &In,
   const std::string var = variable(BO);
 
   Value *op1 = BO->getOperand(0);
+  ConstantInt *c1 = dyn_cast<ConstantInt>(op1);
   Domain *d1 = getDomain(op1, In);
 
   Value *op2 = BO->getOperand(1);
+  ConstantInt *c2 = dyn_cast<ConstantInt>(op2);
   Domain *d2 = getDomain(op2, In);
 
-  errs() << "d1: " << d1->to_string() << "\n";
-  errs() << "d2: " << d2->to_string() << "\n";
+  // errs() << "d1: " << d1->to_string() << "\n";
+  // errs() << "d2: " << d2->to_string() << "\n";
 
-  switch (op) {
-  // case llvm::Instruction::BinaryOpsBegin:
-  //   Out[var] = Domain::add(d1, d2);
-  //   break;
-  case llvm::Instruction::Add:
-    Out[var] = Domain::add(d1, d2);
-    break;
-  // case llvm::Instruction::FAdd:
-  case llvm::Instruction::Sub: {
-    Out[var] = Domain::sub(d1, d2);
-    break;
-  }
-  // case llvm::Instruction::FSub:
-  case llvm::Instruction::Mul:
-    Out[var] = Domain::mul(d1, d2);
-    break;
-  // case llvm::Instruction::FMul:
-  case llvm::Instruction::UDiv:
-  case llvm::Instruction::SDiv:
-    Out[var] = Domain::div(d1, d2);
-    break;
-  // case llvm::Instruction::FDiv:
-  // case llvm::Instruction::URem:
-  // case llvm::Instruction::SRem:
-  // case llvm::Instruction::FRem:
-  // case llvm::Instruction::Shl:
-  // case llvm::Instruction::LShr:
-  // case llvm::Instruction::AShr:
-  // case llvm::Instruction::And:
-  // case llvm::Instruction::Or:
-  // case llvm::Instruction::Xor:
-  // case llvm::Instruction::BinaryOpsEnd:
-  default:
-    errs() << "[!] opcode not supported yet: " << op << "\n";
-    exit(EXIT_FAILURE);
-    break;
+  if (c1 && c2) {
+    // both constants
+    APInt c1Int = c1->getValue();
+    APInt c2Int = c2->getValue();
+    APInt res;
+
+    switch (op) {
+    // case llvm::Instruction::BinaryOpsBegin:
+    //   Out[var] = Domain::add(d1, d2);
+    //   break;
+    case llvm::Instruction::Add:
+      res = c1Int + c2Int;
+      break;
+    // case llvm::Instruction::FAdd:
+    case llvm::Instruction::Sub: {
+      res = c1Int - c2Int;
+      break;
+    }
+    // case llvm::Instruction::FSub:
+    case llvm::Instruction::Mul:
+      res = c1Int * c2Int;
+      break;
+    // case llvm::Instruction::FMul:
+    case llvm::Instruction::UDiv:
+    case llvm::Instruction::SDiv:
+      // hack: just assign the domain of the numerator
+      res = c1Int;
+      break;
+    // case llvm::Instruction::FDiv:
+    // case llvm::Instruction::URem:
+    // case llvm::Instruction::SRem:
+    // case llvm::Instruction::FRem:
+    // case llvm::Instruction::Shl:
+    // case llvm::Instruction::LShr:
+    // case llvm::Instruction::AShr:
+    // case llvm::Instruction::And:
+    // case llvm::Instruction::Or:
+    // case llvm::Instruction::Xor:
+    // case llvm::Instruction::BinaryOpsEnd:
+    default:
+      errs() << "[!] opcode not supported yet: " << op << "\n";
+      exit(EXIT_FAILURE);
+      break;
+    }
+
+    if (res == 0) {
+      Out[var] = new Domain(Domain::Zero);
+    } else {
+      Out[var] = new Domain(Domain::NonZero);
+    }
+
+  } else {
+    // atleast one is not a constant
+    switch (op) {
+    // case llvm::Instruction::BinaryOpsBegin:
+    //   Out[var] = Domain::add(d1, d2);
+    //   break;
+    case llvm::Instruction::Add:
+      Out[var] = Domain::add(d1, d2);
+      break;
+    // case llvm::Instruction::FAdd:
+    case llvm::Instruction::Sub: {
+      Out[var] = Domain::sub(d1, d2);
+      break;
+    }
+    // case llvm::Instruction::FSub:
+    case llvm::Instruction::Mul:
+      Out[var] = Domain::mul(d1, d2);
+      break;
+    // case llvm::Instruction::FMul:
+    case llvm::Instruction::UDiv:
+    case llvm::Instruction::SDiv:
+      Out[var] = Domain::div(d1, d2);
+      break;
+    // case llvm::Instruction::FDiv:
+    // case llvm::Instruction::URem:
+    // case llvm::Instruction::SRem:
+    // case llvm::Instruction::FRem:
+    // case llvm::Instruction::Shl:
+    // case llvm::Instruction::LShr:
+    // case llvm::Instruction::AShr:
+    // case llvm::Instruction::And:
+    // case llvm::Instruction::Or:
+    // case llvm::Instruction::Xor:
+    // case llvm::Instruction::BinaryOpsEnd:
+    default:
+      errs() << "[!] opcode not supported yet: " << op << "\n";
+      exit(EXIT_FAILURE);
+      break;
+    }
   }
 }
 
 void DivZeroAnalysis::handleCastInst(CastInst *CI, const Memory &In,
                                      Memory &Out) {
-  errs() << "handleCastInst >>\n";
+  // errs() << "handleCastInst >>\n";
 
-  CI->dump();
+  // CI->dump();
 
-  errs() << "In: ";
-  printMemory(&In);
-  errs() << "Out: ";
-  printMemory(&Out);
+  // errs() << "In: ";
+  // printMemory(&In);
+  // errs() << "Out: ";
+  // printMemory(&Out);
 
   // we are not here to check invalid casts, so the out domain would just be
   // the domain to which we are casting
@@ -239,19 +281,19 @@ void DivZeroAnalysis::handleCastInst(CastInst *CI, const Memory &In,
   // based on the operand of cast, change the domain of the output
 
   if (CI->isIntegerCast()) {
-    errs() << "num operands: " << CI->getNumOperands() << "\n";
+    // errs() << "num operands: " << CI->getNumOperands() << "\n";
     auto operand = CI->getOperand(0);
     auto var = variable(operand);
-    errs() << "var: " << var << "\n";
-    errs() << "In.at(var): " << In.at(var)->to_string() << "\n";
+    // errs() << "var: " << var << "\n";
+    // errs() << "In.at(var): " << In.at(var)->to_string() << "\n";
     auto instVar = variable(CI);
     Out[instVar] = In.at(var);
   }
 
-  errs() << "OutMap[CI]: ";
-  printMemory(OutMap[CI]);
-
-  errs() << "handleCastInst <<\n";
+  // errs() << "OutMap[CI]: ";
+  // printMemory(OutMap[CI]);
+  //
+  // errs() << "handleCastInst <<\n";
 }
 
 Domain::Element handle_ICMP_EQ(Value *op1, Value *op2, Constant *c1,
@@ -610,7 +652,7 @@ Domain::Element handle_ICMP_SLE(Value *op1, Value *op2, Constant *c1,
 
 void DivZeroAnalysis::handleCmpInst(CmpInst *CmpI, const Memory &In,
                                     Memory &Out) {
-  errs() << "handleCmpInst: \n";
+  // errs() << "handleCmpInst: \n";
 
   const std::string varInst = variable(CmpI);
 
@@ -699,8 +741,8 @@ void DivZeroAnalysis::handleCmpInst(CmpInst *CmpI, const Memory &In,
   assert(resDomain != Domain::Uninit);
   Out[varInst] = new Domain(resDomain);
 
-  errs() << "out memory: ";
-  printMemory(&Out);
+  // errs() << "out memory: ";
+  // printMemory(&Out);
 }
 
 void DivZeroAnalysis::handleBranchInst(BranchInst *BI, const Memory &In,
@@ -718,13 +760,13 @@ void DivZeroAnalysis::handlePHIInst(Instruction *I, const Memory &In,
   PHINode *PHI = dyn_cast<PHINode>(I);
   assert(PHI != nullptr);
   Domain *d = evalPhiNode(PHI, &In);
-  errs() << "domain of phi: " << d << "\n";
+  // errs() << "domain of phi: " << d << "\n";
 
   std::string varInst = variable(I);
   Out[varInst] = d;
 
-  errs() << "out memory: ";
-  printMemory(&Out);
+  // errs() << "out memory: ";
+  // printMemory(&Out);
 }
 
 void DivZeroAnalysis::handleUserInput(Instruction *I, const Memory &In,
@@ -733,17 +775,17 @@ void DivZeroAnalysis::handleUserInput(Instruction *I, const Memory &In,
   Domain *d = new Domain(Domain::MaybeZero);
   std::string varInst = variable(I);
   Out[varInst] = d;
-  errs() << "out memory: ";
-  printMemory(&Out);
+  // errs() << "out memory: ";
+  // printMemory(&Out);
 }
 
 void DivZeroAnalysis::transfer(Instruction *I, const Memory *In, Memory *Out) {
-  errs() << "transfer >>\n";
-
-  errs() << "In: ";
-  printMemory(In);
-  errs() << "Out: ";
-  printMemory(Out);
+  // errs() << "transfer >>\n";
+  //
+  // errs() << "In: ";
+  // printMemory(In);
+  // errs() << "Out: ";
+  // printMemory(Out);
 
   /* Add your code here */
 
@@ -767,12 +809,12 @@ void DivZeroAnalysis::transfer(Instruction *I, const Memory *In, Memory *Out) {
   //    - copy InMem to OutMem
   //    - update OutMem as per the insturtion's transfer function
   if (BinaryOperator *BO = dyn_cast<BinaryOperator>(I)) {
-    dbgs() << ">> binary operator:\n";
+    // dbgs() << ">> binary operator:\n";
     // BO->dump();
     handleBinaryOperator(BO, *In, *Out);
 
   } else if (CastInst *CI = dyn_cast<CastInst>(I)) {
-    dbgs() << ">> cast inst:\n";
+    // dbgs() << ">> cast inst:\n";
     // CI->dump();
     handleCastInst(CI, *In, *Out);
 
@@ -782,22 +824,23 @@ void DivZeroAnalysis::transfer(Instruction *I, const Memory *In, Memory *Out) {
     handleCmpInst(CmpI, *In, *Out);
 
   } else if (BranchInst *BI = dyn_cast<BranchInst>(I)) {
-    dbgs() << ">> branch inst:\n";
+    // dbgs() << ">> branch inst:\n";
     // BI->dump();
     handleBranchInst(BI, *In, *Out);
 
   } else if (isa<PHINode>(I)) {
-    dbgs() << ">> phi inst:\n";
+    // dbgs() << ">> phi inst:\n";
     handlePHIInst(I, *In, *Out);
 
   } else if (isInput(I)) {
-    dbgs() << ">> user input:\n";
+    // dbgs() << ">> user input:\n";
     // I->dump();
     handleUserInput(I, *In, *Out);
+
   } else {
     // do nothing
     // OUT <- IN
-    dbgs() << ">> doing nothing...\n";
+    // dbgs() << ">> doing nothing...\n";
     for (auto it : *In) {
       Out->at(it.first) = it.second;
     }
@@ -806,12 +849,12 @@ void DivZeroAnalysis::transfer(Instruction *I, const Memory *In, Memory *Out) {
 
 void DivZeroAnalysis::flowOut(Instruction *I, Memory *Pre, Memory *Post,
                               SetVector<Instruction *> &WorkSet) {
-  errs() << "flowOut >>\n";
-
-  errs() << "Pre: ";
-  printMemory(Pre);
-  errs() << "Post: ";
-  printMemory(Post);
+  // errs() << "flowOut >>\n";
+  //
+  // errs() << "Pre: ";
+  // printMemory(Pre);
+  // errs() << "Post: ";
+  // printMemory(Post);
 
   /* Add your code here */
   // - pre and post should have the same keys
@@ -849,15 +892,15 @@ void DivZeroAnalysis::doAnalysis(Function &F) {
     // get an item from the workset
     Instruction *I = WorkSet.front();
     WorkSet.remove(I);
-    errs() << "\ninst >>>>>>>\n";
-    dbgs() << ">> inst: " << *I << "\n";
+    // errs() << "\ninst >>>>>>>\n";
+    // dbgs() << ">> inst: " << *I << "\n";
 
     // flowin
     flowIn(I, InMap[I]);
 
-    errs() << "after flowIn --\n";
-    errs() << "InMap[I]: ";
-    printMemory(InMap[I]);
+    // errs() << "after flowIn --\n";
+    // errs() << "InMap[I]: ";
+    // printMemory(InMap[I]);
 
     // transfer
     auto Pre = cloneMemory(*OutMap[I]);
@@ -867,13 +910,13 @@ void DivZeroAnalysis::doAnalysis(Function &F) {
     // flowout
     flowOut(I, Pre, Post, WorkSet);
 
-    errs() << "finally for this instruction: \n";
-    errs() << "InMap[I]: ";
-    printMemory(InMap[I]);
-    errs() << "OutMap[I]: ";
-    printMemory(OutMap[I]);
-
-    errs() << "inst <<<<<<<\n";
+    // errs() << "finally for this instruction: \n";
+    // errs() << "InMap[I]: ";
+    // printMemory(InMap[I]);
+    // errs() << "OutMap[I]: ";
+    // printMemory(OutMap[I]);
+    //
+    // errs() << "inst <<<<<<<\n";
   }
 }
 
